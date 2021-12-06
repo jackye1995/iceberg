@@ -96,7 +96,7 @@ class Literals {
     return BelowMin.INSTANCE;
   }
 
-  private abstract static class BaseLiteral<T> implements Literal<T> {
+  abstract static class BaseLiteral<T> implements Literal<T> {
     private final T value;
     private transient volatile ByteBuffer byteBuffer = null;
 
@@ -167,7 +167,7 @@ class Literals {
   }
 
   static class AboveMax<T> implements Literal<T> {
-    private static final AboveMax INSTANCE = new AboveMax();
+    static final AboveMax INSTANCE = new AboveMax();
 
     private AboveMax() {
     }
@@ -194,7 +194,7 @@ class Literals {
   }
 
   static class BelowMin<T> implements Literal<T> {
-    private static final BelowMin INSTANCE = new BelowMin();
+    static final BelowMin INSTANCE = new BelowMin();
 
     private BelowMin() {
     }
