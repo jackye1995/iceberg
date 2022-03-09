@@ -33,7 +33,7 @@ public class TestExpressionParser {
             "    \"value\" : \"Column-Name\"\n" +
             "  },\n" +
             "  \"literals\" : [ {\n" +
-            "    \"type\" : \"integer\",\n" +
+            "    \"type\" : \"int\",\n" +
             "    \"value\" : \"2\\u0000\\u0000\\u0000\"\n" +
             "  } ]\n" +
             "}";
@@ -59,7 +59,7 @@ public class TestExpressionParser {
             "      \"value\" : \"Column1-Name\"\n" +
             "    },\n" +
             "    \"literals\" : [ {\n" +
-            "      \"type\" : \"integer\",\n" +
+            "      \"type\" : \"int\",\n" +
             "      \"value\" : \"2\\u0000\\u0000\\u0000\"\n" +
             "    } ]\n" +
             "  },\n" +
@@ -107,7 +107,7 @@ public class TestExpressionParser {
             "      \"value\" : \"Column1-Name\"\n" +
             "    },\n" +
             "    \"literals\" : [ {\n" +
-            "      \"type\" : \"integer\",\n" +
+            "      \"type\" : \"int\",\n" +
             "      \"value\" : \"2\\u0000\\u0000\\u0000\"\n" +
             "    } ]\n" +
             "  },\n" +
@@ -147,7 +147,7 @@ public class TestExpressionParser {
             "      \"value\" : \"Column1-Name\"\n" +
             "    },\n" +
             "    \"literals\" : [ {\n" +
-            "      \"type\" : \"integer\",\n" +
+            "      \"type\" : \"int\",\n" +
             "      \"value\" : \"2\\u0000\\u0000\\u0000\"\n" +
             "    } ]\n" +
             "  }\n" +
@@ -177,7 +177,7 @@ public class TestExpressionParser {
             "        \"value\" : \"Column1-Name\"\n" +
             "      },\n" +
             "      \"literals\" : [ {\n" +
-            "        \"type\" : \"integer\",\n" +
+            "        \"type\" : \"int\",\n" +
             "        \"value\" : \"2\\u0000\\u0000\\u0000\"\n" +
             "      } ]\n" +
             "    },\n" +
@@ -225,81 +225,49 @@ public class TestExpressionParser {
   }
 
   @Test
-  public void aboveMaxAndBelowMinTest() {
-    String expected = "{\n" +
-            "  \"type\" : \"and\",\n" +
-            "  \"left-operand\" : {\n" +
-            "    \"type\" : \"unbounded-predicate\",\n" +
-            "    \"operation\" : \"lt\",\n" +
-            "    \"term\" : {\n" +
-            "      \"type\" : \"named-reference\",\n" +
-            "      \"value\" : \"Column1-Name\"\n" +
-            "    },\n" +
-            "    \"literals\" : [ {\n" +
-            "      \"type\" : \"above-max\"\n" +
-            "    } ]\n" +
-            "  },\n" +
-            "  \"right-operand\" : {\n" +
-            "    \"type\" : \"unbounded-predicate\",\n" +
-            "    \"operation\" : \"gt_eq\",\n" +
-            "    \"term\" : {\n" +
-            "      \"type\" : \"named-reference\",\n" +
-            "      \"value\" : \"Column2-Name\"\n" +
-            "    },\n" +
-            "    \"literals\" : [ {\n" +
-            "      \"type\" : \"below-min\"\n" +
-            "    } ]\n" +
-            "  }\n" +
-            "}";
-
-    UnboundPredicate aboveMaxPredicate = new UnboundPredicate(
-            Expression.Operation.LT,
-            new NamedReference("Column1-Name"),
-            new Literals.AboveMax());
-
-    UnboundPredicate belowMinPredicate = new UnboundPredicate(
-            Expression.Operation.GT_EQ,
-            new NamedReference("Column2-Name"),
-            new Literals.BelowMin<>());
-
-    And andExpression = new And(aboveMaxPredicate, belowMinPredicate);
-    String actual = ExpressionParser.toJson(andExpression, true);
-
-    Expression parsed = ExpressionParser.fromJson(actual);
-
-    Assert.assertEquals(expected, actual);
-  }
-
-  @Test
   public void testParserBothWays() {
     String expected = "{\n" +
-            "  \"type\" : \"and\",\n" +
+            "  \"type\" : \"or\",\n" +
             "  \"left-operand\" : {\n" +
-            "    \"type\" : \"unbounded-predicate\",\n" +
-            "    \"operation\" : \"lt\",\n" +
-            "    \"term\" : {\n" +
-            "      \"type\" : \"named-reference\",\n" +
-            "      \"value\" : \"Column1-Name\"\n" +
+            "    \"type\" : \"and\",\n" +
+            "    \"left-operand\" : {\n" +
+            "      \"type\" : \"unbounded-predicate\",\n" +
+            "      \"operation\" : \"in\",\n" +
+            "      \"term\" : {\n" +
+            "        \"type\" : \"named-reference\",\n" +
+            "        \"value\" : \"Column1-Name\"\n" +
+            "      },\n" +
+            "      \"literals\" : [ {\n" +
+            "        \"type\" : \"int\",\n" +
+            "        \"value\" : \"2\\u0000\\u0000\\u0000\"\n" +
+            "      } ]\n" +
             "    },\n" +
-            "    \"literals\" : [ {\n" +
-            "      \"type\" : \"above-max\"\n" +
-            "    } ]\n" +
+            "    \"right-operand\" : {\n" +
+            "      \"type\" : \"unbounded-predicate\",\n" +
+            "      \"operation\" : \"eq\",\n" +
+            "      \"term\" : {\n" +
+            "        \"type\" : \"named-reference\",\n" +
+            "        \"value\" : \"Column2-Name\"\n" +
+            "      },\n" +
+            "      \"literals\" : [ {\n" +
+            "        \"type\" : \"string\",\n" +
+            "        \"value\" : \"Test\"\n" +
+            "      } ]\n" +
+            "    }\n" +
             "  },\n" +
             "  \"right-operand\" : {\n" +
             "    \"type\" : \"unbounded-predicate\",\n" +
-            "    \"operation\" : \"gt_eq\",\n" +
+            "    \"operation\" : \"is_nan\",\n" +
             "    \"term\" : {\n" +
             "      \"type\" : \"named-reference\",\n" +
-            "      \"value\" : \"Column2-Name\"\n" +
-            "    },\n" +
-            "    \"literals\" : [ {\n" +
-            "      \"type\" : \"below-min\"\n" +
-            "    } ]\n" +
+            "      \"value\" : \"Column3-Name\"\n" +
+            "    }\n" +
             "  }\n" +
             "}";
 
-    Expression expression = ExpressionParser.fromJson(expected);
-    System.out.println(ExpressionParser.toJson(expression, true));
-  }
+    Expression actualExpression = ExpressionParser.fromJson(expected);
+    String actualJsonExpression = ExpressionParser.toJson(actualExpression, true);
 
+    Assert.assertEquals(expected, actualJsonExpression);
+  }
 }

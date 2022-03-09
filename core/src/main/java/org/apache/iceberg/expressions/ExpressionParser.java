@@ -21,7 +21,6 @@ package org.apache.iceberg.expressions;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.io.IOException;
@@ -34,6 +33,8 @@ import org.apache.iceberg.exceptions.RuntimeIOException;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
+import org.apache.iceberg.types.Conversions;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.JsonUtil;
 
 public class ExpressionParser {
@@ -68,16 +69,6 @@ public class ExpressionParser {
   private static final String NOT_NULL = "not_null";
   private static final String IS_NAN = "is_nan";
   private static final String NOT_NAN = "not_nan";
-  private static final String LT = "lt";
-  private static final String LT_EQ = "lt_eq";
-  private static final String GT = "gt";
-  private static final String GT_EQ = "gt_eq";
-  private static final String EQ = "eq";
-  private static final String NOT_EQ = "not_eq";
-  private static final String IN = "in";
-  private static final String NOT_IN = "not_in";
-  private static final String STARTS_WITH = "starts_with";
-  private static final String NOT_STARTS_WITH = "not_starts_with";
 
   private static final Set<Expression.Operation> ONE_INPUTS = ImmutableSet.of(
           Expression.Operation.IS_NULL,
@@ -86,8 +77,24 @@ public class ExpressionParser {
           Expression.Operation.NOT_NAN);
 
   private static final Set<String> ONE_INPUTS_STRINGS = Sets.newHashSet(
-          IS_NULL, NOT_NULL, IS_NAN, NOT_NAN);
+          Expression.Operation.IS_NULL.name().toLowerCase(),
+          Expression.Operation.NOT_NULL.name().toLowerCase(),
+          Expression.Operation.IS_NAN.name().toLowerCase(),
+          Expression.Operation.NOT_NAN.name().toLowerCase());
 
+  private static final String BOOLEAN = "boolean";
+  private static final String INTEGER = "int";
+  private static final String LONG = "long";
+  private static final String FLOAT = "float";
+  private static final String DOUBLE = "double";
+  private static final String DATE = "date";
+  private static final String TIME = "time";
+  private static final String TIMESTAMP = "timestamp";
+  private static final String STRING = "string";
+  private static final String UUID = "uuid";
+  private static final String FIXED = "fixed";
+  private static final String BINARY = "binary";
+  private static final String DECIMAL = "decimal";
 
   private ExpressionParser() {
   }
@@ -245,7 +252,7 @@ public class ExpressionParser {
     } else if (literal instanceof Literals.BelowMin) {
       generator.writeStringField(TYPE, BELOW_MIN);
     } else {
-      generator.writeStringField(TYPE, ((Literals.BaseLiteral) literal).typeId().toString().toLowerCase());
+      generator.writeStringField(TYPE, Literals.typeFromLiteral(literal));
       generator.writeStringField(VALUE, StandardCharsets.UTF_8.decode(literal.toByteBuffer()).toString());
     }
 
@@ -315,55 +322,58 @@ public class ExpressionParser {
         case IS_NAN:
           return new UnboundPredicate(
                   Expression.Operation.IS_NAN, fromJsonToTerm(json.get(TERM)));
-        default:
+        case NOT_NAN:
           return new UnboundPredicate(
                   Expression.Operation.NOT_NAN, fromJsonToTerm(json.get(TERM)));
+        default:
+          throw new IllegalArgumentException("Cannot find valid Operation Type for " + operation + ".");
       }
-    } else if (operation.equals(LT)) {
+
+    } else if (operation.equals(Expression.Operation.LT.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.LT,
               fromJsonToTerm(json.get(TERM)),
               fromJsonToLiterals(json.get(LITERALS)));
-    } else if (operation.equals(LT_EQ)) {
+    } else if (operation.equals(Expression.Operation.LT_EQ.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.LT_EQ,
               fromJsonToTerm(json.get(TERM)),
               fromJsonToLiterals(json.get(LITERALS)));
-    } else if (operation.equals(GT)) {
+    } else if (operation.equals(Expression.Operation.GT.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.GT, fromJsonToTerm(json.get(TERM)),
               fromJsonToLiterals(json.get(LITERALS)));
-    } else if (operation.equals(GT_EQ)) {
+    } else if (operation.equals(Expression.Operation.GT_EQ.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.GT_EQ,
               fromJsonToTerm(json.get(TERM)),
               fromJsonToLiterals(json.get(LITERALS)));
-    } else if (operation.equals(EQ)) {
+    } else if (operation.equals(Expression.Operation.EQ.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.EQ,
               fromJsonToTerm(json.get(TERM)),
               fromJsonToLiterals(json.get(LITERALS)));
-    } else if (operation.equals(NOT_EQ)) {
+    } else if (operation.equals(Expression.Operation.NOT_EQ.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.NOT_EQ,
               fromJsonToTerm(json.get(TERM)),
               fromJsonToLiterals(json.get(LITERALS)));
-    } else if (operation.equals(IN)) {
+    } else if (operation.equals(Expression.Operation.IN.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.IN,
               fromJsonToTerm(json.get(TERM)),
               fromJsonToLiterals(json.get(LITERALS)));
-    } else if (operation.equals(NOT_IN)) {
+    } else if (operation.equals(Expression.Operation.NOT_IN.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.NOT_IN,
               fromJsonToTerm(json.get(TERM)),
               fromJsonToLiterals(json.get(LITERALS)));
-    } else if (operation.equals(STARTS_WITH)) {
+    } else if (operation.equals(Expression.Operation.STARTS_WITH.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.STARTS_WITH,
               fromJsonToTerm(json.get(TERM)),
               fromJsonToLiterals(json.get(LITERALS)));
-    } else if (operation.equals(NOT_STARTS_WITH)) {
+    } else if (operation.equals(Expression.Operation.NOT_STARTS_WITH.name().toLowerCase())) {
       return new UnboundPredicate(
               Expression.Operation.NOT_STARTS_WITH,
               fromJsonToTerm(json.get(TERM)),
@@ -401,11 +411,14 @@ public class ExpressionParser {
     }
   }
 
-  public static List<Literal> fromJsonToLiterals(JsonNode json) {
-    List<Literal> literals = Lists.newArrayList();
-    ArrayNode literalNodes = (ArrayNode) json.get(LITERALS);
-    for (int i = 0; i < literals.size(); i++){
-      // Literal.of(Conversions.fromByteBuffer(literalNodes.get(i).get(VALUE).textValue()));
+  public static List<?> fromJsonToLiterals(JsonNode json) {
+    List<?> literals = Lists.newArrayList();
+    String literalType;
+    for (int i = 0; i < json.size(); i++) {
+      literalType = json.get(i).get(TYPE).textValue();
+      literals.add(Conversions.fromByteBuffer(
+              Types.fromPrimitiveString(literalType),
+              StandardCharsets.UTF_8.encode(json.get(i).get(VALUE).textValue())));
     }
 
     return literals;
