@@ -46,6 +46,7 @@ public class TestExpressionParser {
     String actual = ExpressionParser.toJson(inPredicate, true);
     Assert.assertEquals(expected, actual);
   }
+
   @Test
   public void testAnd() {
     String expected = "{\n" +
@@ -87,6 +88,9 @@ public class TestExpressionParser {
             Literal.of("Check"));
 
     And andExpression = new And(gtEqPredicate, inPredicate);
+
+    Expression test = ExpressionParser.fromJson(expected);
+
     String actual = ExpressionParser.toJson(andExpression, true);
     Assert.assertEquals(expected, actual);
   }
@@ -260,6 +264,42 @@ public class TestExpressionParser {
 
     And andExpression = new And(aboveMaxPredicate, belowMinPredicate);
     String actual = ExpressionParser.toJson(andExpression, true);
+
+    Expression parsed = ExpressionParser.fromJson(actual);
+
     Assert.assertEquals(expected, actual);
   }
+
+  @Test
+  public void testParserBothWays() {
+    String expected = "{\n" +
+            "  \"type\" : \"and\",\n" +
+            "  \"left-operand\" : {\n" +
+            "    \"type\" : \"unbounded-predicate\",\n" +
+            "    \"operation\" : \"lt\",\n" +
+            "    \"term\" : {\n" +
+            "      \"type\" : \"named-reference\",\n" +
+            "      \"value\" : \"Column1-Name\"\n" +
+            "    },\n" +
+            "    \"literals\" : [ {\n" +
+            "      \"type\" : \"above-max\"\n" +
+            "    } ]\n" +
+            "  },\n" +
+            "  \"right-operand\" : {\n" +
+            "    \"type\" : \"unbounded-predicate\",\n" +
+            "    \"operation\" : \"gt_eq\",\n" +
+            "    \"term\" : {\n" +
+            "      \"type\" : \"named-reference\",\n" +
+            "      \"value\" : \"Column2-Name\"\n" +
+            "    },\n" +
+            "    \"literals\" : [ {\n" +
+            "      \"type\" : \"below-min\"\n" +
+            "    } ]\n" +
+            "  }\n" +
+            "}";
+
+    Expression expression = ExpressionParser.fromJson(expected);
+    System.out.println(ExpressionParser.toJson(expression, true));
+  }
+
 }

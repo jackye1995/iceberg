@@ -20,17 +20,23 @@
 package org.apache.iceberg.expressions;
 
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
+import org.apache.iceberg.exceptions.RuntimeIOException;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
+import org.apache.iceberg.relocated.com.google.common.collect.Lists;
+import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.apache.iceberg.util.JsonUtil;
 
 public class ExpressionParser {
-
   private static final String TYPE = "type";
   private static final String VALUE = "value";
   private static final String OPERATION = "operation";
@@ -48,16 +54,39 @@ public class ExpressionParser {
   private static final String BOUNDED_LITERAL_PREDICATE = "bounded-literal-predicate";
   private static final String BOUNDED_SET_PREDICATE = "bounded-set-predicate";
   private static final String BOUNDED_UNARY_PREDICATE = "bounded-unary-predicate";
+  private static final Set<String> PREDICATE_TYPES = Sets.newHashSet(
+          UNBOUNDED_PREDICATE,
+          BOUNDED_LITERAL_PREDICATE,
+          BOUNDED_SET_PREDICATE,
+          BOUNDED_UNARY_PREDICATE);
   private static final String NAMED_REFERENCE = "named-reference";
   private static final String BOUND_REFERENCE = "bound-reference";
   private static final String ABOVE_MAX = "above-max";
   private static final String BELOW_MIN = "below-min";
 
-  private static final Set<Expression.Operation> oneInputs = ImmutableSet.of(
+  private static final String IS_NULL = "is";
+  private static final String NOT_NULL = "not_null";
+  private static final String IS_NAN = "is_nan";
+  private static final String NOT_NAN = "not_nan";
+  private static final String LT = "lt";
+  private static final String LT_EQ = "lt_eq";
+  private static final String GT = "gt";
+  private static final String GT_EQ = "gt_eq";
+  private static final String EQ = "eq";
+  private static final String NOT_EQ = "not_eq";
+  private static final String IN = "in";
+  private static final String NOT_IN = "not_in";
+  private static final String STARTS_WITH = "starts_with";
+  private static final String NOT_STARTS_WITH = "not_starts_with";
+
+  private static final Set<Expression.Operation> ONE_INPUTS = ImmutableSet.of(
           Expression.Operation.IS_NULL,
           Expression.Operation.NOT_NULL,
           Expression.Operation.IS_NAN,
           Expression.Operation.NOT_NAN);
+
+  private static final Set<String> ONE_INPUTS_STRINGS = Sets.newHashSet(
+          IS_NULL, NOT_NULL, IS_NAN, NOT_NAN);
 
 
   private ExpressionParser() {
@@ -157,7 +186,7 @@ public class ExpressionParser {
     generator.writeStringField(OPERATION, predicate.op().name().toLowerCase());
     generator.writeFieldName(TERM);
     toJson(predicate.term(), generator);
-    if (!(oneInputs.contains(predicate.op()))) {
+    if (!(ONE_INPUTS.contains(predicate.op()))) {
       generator.writeFieldName(LITERALS);
       toJson(predicate.literals(), generator);
     }
@@ -221,5 +250,164 @@ public class ExpressionParser {
     }
 
     generator.writeEndObject();
+  }
+
+  private static final Cache<String, Expression> EXPRESSION_CACHE = Caffeine.newBuilder()
+          .weakValues()
+          .build();
+
+  public static Expression fromJson(String json) {
+    return EXPRESSION_CACHE.get(json, jsonKey -> {
+      try {
+        return fromJson(JsonUtil.mapper().readValue(jsonKey, JsonNode.class));
+      } catch (IOException e) {
+        throw new RuntimeIOException(e);
+      }
+    });
+  }
+
+  public static Expression fromJson(JsonNode json) {
+    String expressionType = JsonUtil.getString("type", json);
+
+    if (AND.equals(expressionType)) {
+      return new And(fromJson(json.get(LEFT_OPERAND)), fromJson(json.get(RIGHT_OPERAND)));
+    } else if (OR.equals(expressionType)) {
+      return new Or(fromJson(json.get(LEFT_OPERAND)), fromJson(json.get(RIGHT_OPERAND)));
+    } else if (NOT.equals(expressionType)) {
+      return new Not(fromJson(json.get(OPERAND)));
+    } else if (TRUE.equals(expressionType)) {
+      return True.INSTANCE;
+    } else if (FALSE.equals(expressionType)) {
+      return False.INSTANCE;
+    } else if (PREDICATE_TYPES.contains(expressionType)) {
+      return fromJsonToPredicate(json, expressionType);
+    } else {
+      throw new IllegalArgumentException("Invalid Operation Type");
+    }
+  }
+
+  public static Predicate fromJsonToPredicate(JsonNode json, String predicateType) {
+    if (UNBOUNDED_PREDICATE.equals(predicateType)) {
+      return fromJsonUnboundPredicate(json);
+    } else if (BOUNDED_LITERAL_PREDICATE.equals(predicateType)) {
+      return fromJsonBoundLiteralPredicate(json);
+    } else if (BOUNDED_SET_PREDICATE.equals(predicateType)) {
+      return fromJsonBoundSetPredicate(json);
+    } else if (BOUNDED_UNARY_PREDICATE.equals(predicateType)) {
+      return fromJsonBoundUnaryPredicate(json);
+    } else {
+      throw new IllegalArgumentException("Invalid Predicate Type");
+    }
+  }
+
+  @SuppressWarnings("CyclomaticComplexity")
+  public static UnboundPredicate fromJsonUnboundPredicate(JsonNode json) {
+    String operation = json.get(OPERATION).textValue();
+
+    if (ONE_INPUTS_STRINGS.contains(operation)) {
+      switch (operation) {
+        case IS_NULL:
+          return new UnboundPredicate(
+                  Expression.Operation.IS_NULL, fromJsonToTerm(json.get(TERM)));
+        case NOT_NULL:
+          return new UnboundPredicate(
+                  Expression.Operation.NOT_NULL, fromJsonToTerm(json.get(TERM)));
+        case IS_NAN:
+          return new UnboundPredicate(
+                  Expression.Operation.IS_NAN, fromJsonToTerm(json.get(TERM)));
+        default:
+          return new UnboundPredicate(
+                  Expression.Operation.NOT_NAN, fromJsonToTerm(json.get(TERM)));
+      }
+    } else if (operation.equals(LT)) {
+      return new UnboundPredicate(
+              Expression.Operation.LT,
+              fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else if (operation.equals(LT_EQ)) {
+      return new UnboundPredicate(
+              Expression.Operation.LT_EQ,
+              fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else if (operation.equals(GT)) {
+      return new UnboundPredicate(
+              Expression.Operation.GT, fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else if (operation.equals(GT_EQ)) {
+      return new UnboundPredicate(
+              Expression.Operation.GT_EQ,
+              fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else if (operation.equals(EQ)) {
+      return new UnboundPredicate(
+              Expression.Operation.EQ,
+              fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else if (operation.equals(NOT_EQ)) {
+      return new UnboundPredicate(
+              Expression.Operation.NOT_EQ,
+              fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else if (operation.equals(IN)) {
+      return new UnboundPredicate(
+              Expression.Operation.IN,
+              fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else if (operation.equals(NOT_IN)) {
+      return new UnboundPredicate(
+              Expression.Operation.NOT_IN,
+              fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else if (operation.equals(STARTS_WITH)) {
+      return new UnboundPredicate(
+              Expression.Operation.STARTS_WITH,
+              fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else if (operation.equals(NOT_STARTS_WITH)) {
+      return new UnboundPredicate(
+              Expression.Operation.NOT_STARTS_WITH,
+              fromJsonToTerm(json.get(TERM)),
+              fromJsonToLiterals(json.get(LITERALS)));
+    } else {
+      throw new IllegalArgumentException("Cannot find valid Operation Type for " + operation + ".");
+    }
+  }
+
+  public static BoundLiteralPredicate fromJsonBoundLiteralPredicate(JsonNode json) {
+    throw new UnsupportedOperationException(
+            "Serialization of Predicate type BoundLiteralPredicate is not currently supported.");
+  }
+
+  public static BoundSetPredicate fromJsonBoundSetPredicate(JsonNode json) {
+    throw new UnsupportedOperationException(
+            "Serialization of Predicate type BoundSetPredicate is not currently supported.");
+  }
+
+  public static BoundUnaryPredicate fromJsonBoundUnaryPredicate(JsonNode json) {
+    throw new UnsupportedOperationException(
+            "Serialization of Predicate type BoundUnaryPredicate is not currently supported.");
+  }
+
+  public static UnboundTerm fromJsonToTerm(JsonNode json) {
+    String referenceType = json.get(TYPE).textValue();
+
+    if (referenceType.equals(NAMED_REFERENCE)) {
+      return new NamedReference(json.get(VALUE).textValue());
+    } else if (referenceType.equals(BOUND_REFERENCE)) {
+      throw new UnsupportedOperationException(
+              "Serialization of Predicate type BoundReference is not currently supported.");
+    } else {
+      throw new IllegalArgumentException("Invalid Term Reference Type");
+    }
+  }
+
+  public static List<Literal> fromJsonToLiterals(JsonNode json) {
+    List<Literal> literals = Lists.newArrayList();
+    ArrayNode literalNodes = (ArrayNode) json.get(LITERALS);
+    for (int i = 0; i < literals.size(); i++){
+      // Literal.of(Conversions.fromByteBuffer(literalNodes.get(i).get(VALUE).textValue()));
+    }
+
+    return literals;
   }
 }
