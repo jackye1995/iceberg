@@ -21,8 +21,7 @@ package org.apache.iceberg.expressions;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
@@ -252,25 +251,20 @@ public class ExpressionParser {
     } else if (literal instanceof Literals.BelowMin) {
       generator.writeStringField(TYPE, BELOW_MIN);
     } else {
-      generator.writeStringField(TYPE, Literals.typeFromLiteral(literal));
+      generator.writeStringField(TYPE, Literals.typeFromLiteralValue(literal).toString());
       generator.writeStringField(VALUE, StandardCharsets.UTF_8.decode(literal.toByteBuffer()).toString());
     }
 
     generator.writeEndObject();
   }
 
-  private static final Cache<String, Expression> EXPRESSION_CACHE = Caffeine.newBuilder()
-          .weakValues()
-          .build();
-
   public static Expression fromJson(String json) {
-    return EXPRESSION_CACHE.get(json, jsonKey -> {
-      try {
-        return fromJson(JsonUtil.mapper().readValue(jsonKey, JsonNode.class));
-      } catch (IOException e) {
-        throw new RuntimeIOException(e);
-      }
-    });
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      return fromJson(mapper.readTree(json));
+    } catch (IOException e) {
+      throw new RuntimeIOException(e);
+    }
   }
 
   public static Expression fromJson(JsonNode json) {
@@ -297,11 +291,14 @@ public class ExpressionParser {
     if (UNBOUNDED_PREDICATE.equals(predicateType)) {
       return fromJsonUnboundPredicate(json);
     } else if (BOUNDED_LITERAL_PREDICATE.equals(predicateType)) {
-      return fromJsonBoundLiteralPredicate(json);
+      throw new UnsupportedOperationException(
+              "Serialization of Predicate type BoundLiteralPredicate is not currently supported.");
     } else if (BOUNDED_SET_PREDICATE.equals(predicateType)) {
-      return fromJsonBoundSetPredicate(json);
+      throw new UnsupportedOperationException(
+              "Serialization of Predicate type BoundSetPredicate is not currently supported.");
     } else if (BOUNDED_UNARY_PREDICATE.equals(predicateType)) {
-      return fromJsonBoundUnaryPredicate(json);
+      throw new UnsupportedOperationException(
+              "Serialization of Predicate type BoundUnaryPredicate is not currently supported.");
     } else {
       throw new IllegalArgumentException("Invalid Predicate Type");
     }
@@ -381,21 +378,6 @@ public class ExpressionParser {
     } else {
       throw new IllegalArgumentException("Cannot find valid Operation Type for " + operation + ".");
     }
-  }
-
-  public static BoundLiteralPredicate fromJsonBoundLiteralPredicate(JsonNode json) {
-    throw new UnsupportedOperationException(
-            "Serialization of Predicate type BoundLiteralPredicate is not currently supported.");
-  }
-
-  public static BoundSetPredicate fromJsonBoundSetPredicate(JsonNode json) {
-    throw new UnsupportedOperationException(
-            "Serialization of Predicate type BoundSetPredicate is not currently supported.");
-  }
-
-  public static BoundUnaryPredicate fromJsonBoundUnaryPredicate(JsonNode json) {
-    throw new UnsupportedOperationException(
-            "Serialization of Predicate type BoundUnaryPredicate is not currently supported.");
   }
 
   public static UnboundTerm fromJsonToTerm(JsonNode json) {

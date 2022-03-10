@@ -19,6 +19,10 @@
 
 package org.apache.iceberg.expressions;
 
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -269,5 +273,54 @@ public class TestExpressionParser {
     String actualJsonExpression = ExpressionParser.toJson(actualExpression, true);
 
     Assert.assertEquals(expected, actualJsonExpression);
+  }
+
+  @Test
+  public void testFixedLiteral() {
+    String expected = "";
+    String testString = "2\\u0000\\u0000\\u0000";
+    ByteBuffer testByteBuffer = StandardCharsets.UTF_8.encode(testString);
+
+    byte[] testByteArray = new byte[testByteBuffer.remaining()];
+    testByteBuffer.get(testByteArray);
+
+    Literal testLiteral = Literals.from(testByteArray);
+    System.out.println(StandardCharsets.UTF_8.decode(testLiteral.toByteBuffer()).toString());
+
+    UnboundPredicate expectedExpression = new UnboundPredicate(
+            Expression.Operation.EQ,
+            new NamedReference("Column-Name"),
+            Lists.newArrayList(testByteArray));
+    System.out.println(ExpressionParser.toJson(expectedExpression, true));
+  }
+
+  @Test
+  public void testDecimalLiteral() {
+    String expected = "{\n" +
+            "  \"type\" : \"unbounded-predicate\",\n" +
+            "  \"operation\" : \"in\",\n" +
+            "  \"term\" : {\n" +
+            "    \"type\" : \"named-reference\",\n" +
+            "    \"value\" : \"Column-Name\"\n" +
+            "  },\n" +
+            "  \"literals\" : [ {\n" +
+            "    \"type\" : \"decimal(3, 2)\",\n" +
+            "    \"value\" : \"\\u0001:\"\n" +
+            "  } ]\n" +
+            "}";
+
+    UnboundPredicate expectedExpression = new UnboundPredicate(
+            Expression.Operation.IN,
+            new NamedReference("Column-Name"),
+            Lists.newArrayList(new BigDecimal("3.14")));
+
+    String actualJsonExpression = ExpressionParser.toJson(ExpressionParser.fromJson(expected), true);
+    Expression actualExpression = ExpressionParser.fromJson(expected);
+
+    Assert.assertEquals(expected, ExpressionParser.toJson(expectedExpression, true));
+    Assert.assertEquals(expected, actualJsonExpression);
+    Assert.assertEquals(
+            ((UnboundPredicate) actualExpression).literals().get(0).toString(),
+            expectedExpression.literals().get(0).toString());
   }
 }
