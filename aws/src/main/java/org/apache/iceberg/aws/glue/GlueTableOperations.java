@@ -19,6 +19,7 @@
 
 package org.apache.iceberg.aws.glue;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -43,6 +44,8 @@ import software.amazon.awssdk.services.glue.model.CreateTableRequest;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
 import software.amazon.awssdk.services.glue.model.GetTableRequest;
 import software.amazon.awssdk.services.glue.model.GetTableResponse;
+import software.amazon.awssdk.services.glue.model.GetUnfilteredTableMetadataRequest;
+import software.amazon.awssdk.services.glue.model.GetUnfilteredTableMetadataResponse;
 import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.glue.model.TableInput;
 import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
@@ -70,6 +73,8 @@ class GlueTableOperations extends BaseMetastoreTableOperations {
       .orNoop()
       .build();
 
+  private List<String> authorizedColumns = null;
+
   GlueTableOperations(GlueClient glue, LockManager lockManager, String catalogName, AwsProperties awsProperties,
                       FileIO fileIO, TableIdentifier tableIdentifier) {
     this.glue = glue;
@@ -85,6 +90,10 @@ class GlueTableOperations extends BaseMetastoreTableOperations {
   @Override
   public FileIO io() {
     return fileIO;
+  }
+
+  public List<String> authorizedColumns() {
+    return authorizedColumns;
   }
 
   @Override
@@ -116,7 +125,20 @@ class GlueTableOperations extends BaseMetastoreTableOperations {
 
     try {
       lock(newMetadataLocation);
-      Table glueTable = getGlueTable();
+
+      Table glueTable = null;
+      if (awsProperties.glueLakeFormationEnabled()) {
+        GetUnfilteredTableMetadataResponse unfilteredTable = getUnfilteredGlueTable();
+        if (unfilteredTable != null) {
+          glueTable = unfilteredTable.table();
+          if (unfilteredTable.hasAuthorizedColumns()) {
+            authorizedColumns = unfilteredTable.authorizedColumns();
+          }
+        }
+      } else {
+        glueTable = getGlueTable();
+      }
+
       checkMetadataLocation(glueTable, base);
       Map<String, String> properties = prepareProperties(glueTable, newMetadataLocation);
       persistGlueTable(glueTable, properties, metadata);
@@ -172,6 +194,19 @@ class GlueTableOperations extends BaseMetastoreTableOperations {
           .name(tableName)
           .build());
       return response.table();
+    } catch (EntityNotFoundException e) {
+      return null;
+    }
+  }
+
+  private GetUnfilteredTableMetadataResponse getUnfilteredGlueTable() {
+    try {
+      return glue.getUnfilteredTableMetadata(
+          GetUnfilteredTableMetadataRequest.builder()
+              .catalogId(awsProperties.glueCatalogId())
+              .databaseName(databaseName)
+              .name(tableName)
+              .build());
     } catch (EntityNotFoundException e) {
       return null;
     }

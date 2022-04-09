@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseMetastoreCatalog;
 import org.apache.iceberg.BaseMetastoreTableOperations;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.LockManager;
@@ -186,6 +187,16 @@ public class GlueCatalog extends BaseMetastoreCatalog
     } else {
       return path;
     }
+  }
+
+  @Override
+  public org.apache.iceberg.Table loadTable(TableIdentifier identifier) {
+    org.apache.iceberg.Table icebergTable = super.loadTable(identifier);
+    if (icebergTable instanceof BaseTable) {
+      return new GlueTable(((BaseTable) icebergTable).operations(), icebergTable.name());
+    }
+
+    return icebergTable;
   }
 
   @Override
