@@ -89,6 +89,7 @@ public class AwsIntegTestUtil {
   }
 
   public static void cleanS3Bucket(S3Client s3, String bucketName, String prefix) {
+    // random change
     boolean hasContent = true;
     while (hasContent) {
       ListObjectsV2Response response = s3.listObjectsV2(ListObjectsV2Request.builder()
