@@ -107,6 +107,8 @@ project(":iceberg-spark:iceberg-spark-${sparkMajorVersion}_${scalaVersion}") {
     testImplementation project(path: ':iceberg-api', configuration: 'testArtifacts')
     testImplementation project(path: ':iceberg-core', configuration: 'testArtifacts')
     testImplementation project(path: ':iceberg-data', configuration: 'testArtifacts')
+    testImplementation project(path: ':iceberg-aws')
+    testImplementation project(path: ':iceberg-aws-bundle')
     testImplementation libs.sqlite.jdbc
     testImplementation libs.awaitility
   }
@@ -172,6 +174,8 @@ project(":iceberg-spark:iceberg-spark-extensions-${sparkMajorVersion}_${scalaVer
     testImplementation project(path: ':iceberg-core', configuration: 'testArtifacts')
     testImplementation project(path: ':iceberg-hive-metastore', configuration: 'testArtifacts')
     testImplementation project(path: ":iceberg-spark:iceberg-spark-${sparkMajorVersion}_${scalaVersion}", configuration: 'testArtifacts')
+    testImplementation project(path: ':iceberg-aws')
+    testImplementation project(path: ':iceberg-aws-bundle')
 
     testImplementation libs.avro.avro
     testImplementation libs.parquet.hadoop

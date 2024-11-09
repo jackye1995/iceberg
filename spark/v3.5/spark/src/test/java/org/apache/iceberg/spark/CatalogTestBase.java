@@ -40,6 +40,11 @@ public abstract class CatalogTestBase extends TestBaseWithCatalog {
         SparkCatalogConfig.HADOOP.properties()
       },
       {
+        SparkCatalogConfig.GLUE.catalogName(),
+        SparkCatalogConfig.GLUE.implementation(),
+        SparkCatalogConfig.GLUE.properties()
+      },
+      {
         SparkCatalogConfig.SPARK.catalogName(),
         SparkCatalogConfig.SPARK.implementation(),
         SparkCatalogConfig.SPARK.properties()

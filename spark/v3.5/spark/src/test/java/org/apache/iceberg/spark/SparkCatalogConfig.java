@@ -34,6 +34,10 @@ public enum SparkCatalogConfig {
       "testhadoop",
       SparkCatalog.class.getName(),
       ImmutableMap.of("type", "hadoop", "cache-enabled", "false")),
+  GLUE(
+      "glue",
+      SparkCatalog.class.getName(),
+      ImmutableMap.of("type", "glue", "glue.id", "110488619822")),
   SPARK(
       "spark_catalog",
       SparkSessionCatalog.class.getName(),

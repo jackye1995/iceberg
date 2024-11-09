@@ -143,6 +143,17 @@ public abstract class SparkRowLevelOperationsTestBase extends ExtensionsTestBase
         LOCAL
       },
       {
+          "glue",
+          SparkCatalog.class.getName(),
+          ImmutableMap.of("type", "glue", "glue.id", "110488619822"),
+          FileFormat.PARQUET,
+          RANDOM.nextBoolean(),
+          WRITE_DISTRIBUTION_MODE_HASH,
+          true,
+          null,
+          LOCAL
+      },
+      {
         "spark_catalog",
         SparkSessionCatalog.class.getName(),
         ImmutableMap.of(
