@@ -261,7 +261,7 @@ public class TestS3FileIOIntegration {
     s3.putObject(
         PutObjectRequest.builder().bucket(bucketName).key(objectKey).build(),
         RequestBody.fromBytes(contentBytes));
-    S3FileIO s3FileIO = new S3FileIO(clientFactory::s3, clientFactory::s3Async);
+    S3FileIO s3FileIO = new S3FileIO();
     s3FileIO.initialize(
         ImmutableMap.of(S3FileIOProperties.S3_ANALYTICS_ACCELERATOR_ENABLED, String.valueOf(true)));
     validateRead(s3FileIO);
@@ -272,7 +272,7 @@ public class TestS3FileIOIntegration {
     s3.putObject(
         PutObjectRequest.builder().bucket(bucketName).key(objectKey).build(),
         RequestBody.fromBytes(contentBytes));
-    S3FileIO s3FileIO = new S3FileIO(clientFactory::s3, clientFactory::s3Async);
+    S3FileIO s3FileIO = new S3FileIO();
     s3FileIO.initialize(
         ImmutableMap.of(
             S3FileIOProperties.S3_ANALYTICS_ACCELERATOR_ENABLED,
@@ -286,7 +286,7 @@ public class TestS3FileIOIntegration {
   public void testNewInputStreamWithAnalyticsAcceleratorCustomConfigured() throws Exception {
     final String prefetchingMode = "logicalio.prefetching.mode";
     final String s3Uri = String.format("s3://%s/%s/%s", bucketName, prefix, "testFile.parquet");
-    S3FileIO s3FileIO = new S3FileIO(clientFactory::s3, clientFactory::s3Async);
+    S3FileIO s3FileIO = new S3FileIO();
     s3FileIO.initialize(
         ImmutableMap.of(
             S3FileIOProperties.S3_ANALYTICS_ACCELERATOR_ENABLED,
@@ -369,7 +369,7 @@ public class TestS3FileIOIntegration {
 
   @Test
   public void testNewOutputStreamWithAnalyticsAccelerator() throws Exception {
-    S3FileIO s3FileIO = new S3FileIO(clientFactory::s3, clientFactory::s3Async);
+    S3FileIO s3FileIO = new S3FileIO();
     s3FileIO.initialize(
         ImmutableMap.of(S3FileIOProperties.S3_ANALYTICS_ACCELERATOR_ENABLED, String.valueOf(true)));
     write(s3FileIO);
